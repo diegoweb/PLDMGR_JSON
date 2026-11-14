@@ -1,4 +1,15 @@
 # PS5 Payload Manager - Payload Sources
+#
+# One entry per line. `github:owner/repo` = latest release of that repo.
+# Optional pipe-separated extras: category | description | version, plus
+# key=value overrides (name=, filename=, asset_pattern=, extract_file=,
+# icon=). Example with a manual icon:
+#
+#   github:quer3q/kraken-mount | Racing | Kraken USB mount | v0.1.0-beta | icon=https://raw.githubusercontent.com/quer3q/kraken-mount/main/docs/logo.png
+#
+# icon= accepts any image URL, a GitHub blob URL, @owner (that avatar),
+# or `none` to disable the icon.
+#
 # --- GitHub repositories ----
 github:Epinorr/y2jb-update-blocker
 github:xvvulcanvx/PS5-TabShifter
