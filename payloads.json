@@ -765,6 +765,19 @@
       "category": "Uncategorized",
       "checksum": "8f78ac0cde64a0744b82663d4a6bf8c1d7e937876dceddc219a21164578bd96e",
       "icon_key": "acbc3f07172cf64078ebb548cc9032478521894f16514734aaa0539ebdc5c203"
+    },
+    {
+      "name": "kraken-mount",
+      "filename": "kraken-mount.elf",
+      "url": "https://github.com/quer3q/kraken-mount/releases/download/v0.0.1-beta/kraken-mount.elf",
+      "source": "https://github.com/quer3q/kraken-mount/releases",
+      "source_direct": "https://github.com/quer3q/kraken-mount/releases/download/v0.0.1-beta/kraken-mount.elf",
+      "description": "v0.0.1-beta",
+      "last_update": "2026-11-13",
+      "version": "v0.0.1-beta",
+      "category": "Uncategorized",
+      "checksum": "32cdf8e9aee9a8e91a7acd8884ac4701a75a38d96d483ea00bb7cbf4fe11a522",
+      "icon_key": "2d3aac6bf74cad50ac006ff966a2d9d0baf59f3a77407132ad38913eac2b820e"
     }
   ]
 }
