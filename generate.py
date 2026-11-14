@@ -90,7 +90,7 @@ from datetime import datetime, timezone
 LINKS_FILE = "links.txt"
 OUTPUT_FILE = "payloads.json"
 ICONS_FILE = "icons.json"
-REPO_NAME = os.environ.get("REPO_NAME", "DiegoWeb Repository")
+REPO_NAME = os.environ.get("REPO_NAME", "Custom Payload Repository")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 DEFAULT_CATEGORY = "Uncategorized"
 USER_AGENT = "payload-catalog-generator/5.0"
