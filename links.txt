@@ -7,8 +7,10 @@
 #
 #   github:quer3q/kraken-mount | Racing | Kraken USB mount | v0.1.0-beta | icon=https://raw.githubusercontent.com/quer3q/kraken-mount/main/docs/logo.png
 #
-# icon= accepts any image URL, a GitHub blob URL, @owner (that avatar),
-# or `none` to disable the icon.
+# icon= accepts any image URL, a GitHub blob URL, a file from this repo
+# (local_icons/<file>), an inline data URI, @owner (that avatar), or `none`
+# to disable the icon. Icons dropped in local_icons/ are picked up
+# automatically by repo name, e.g. local_icons/orbit-store-ps5.svg.
 #
 # --- GitHub repositories ----
 github:Epinorr/y2jb-update-blocker

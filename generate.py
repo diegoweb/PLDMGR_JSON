@@ -73,8 +73,15 @@ For each entry, the icon is resolved in this order:
                                            GitHub blob URL (converted to raw)
        icon=@owner or icon=https://github.com/owner
                                            that account's avatar
+       icon=local_icons/orbit.svg          a file in this repository
+       icon=data:image/png;base64,...      an inline data URI
        icon=none                           no icon at all (no icon_key)
-  2. Otherwise, for entries whose source is a GitHub repo: the repo's
+  2. local_icons/, for payloads whose upstream ships no usable artwork.
+     A file named <owner>-<repo>.<ext>, <repo>.<ext> or <payload name>.<ext>
+     (case-insensitive, .png/.jpg/.jpeg/.svg/.webp/.gif) is picked up
+     automatically, so dropping in an image is enough. This beats the
+     repo scan below, because it is a deliberate human choice.
+  3. Otherwise, for entries whose source is a GitHub repo: the repo's
      default branch is read, its file tree is listed, and every image in
      the repo is scored by filename (icon0 > launcher/app icon > icon >
      logo > avatar > emblem/brand/mark > banner), path depth and file
@@ -83,12 +90,12 @@ For each entry, the icon is resolved in this order:
      scoring candidate is used; images below 48px (favicons, thumbnails)
      are skipped. A wide banner beats the owner avatar, because it is the
      project's own artwork.
-  3. Images referenced from the repo README are scored the same way and
+  4. Images referenced from the repo README are scored the same way and
      tried next, so a logo that only lives in docs/ and is displayed via
      <img src="docs/logo.png"> is still found.
-  4. The repo owner's GitHub avatar (https://github.com/<owner>.png?size=128),
+  5. The repo owner's GitHub avatar (https://github.com/<owner>.png?size=128),
      which is already small enough to pass the limit uncompressed.
-  5. A generated gradient SVG with the payload's initials, so every entry
+  6. A generated gradient SVG with the payload's initials, so every entry
      always has something to show.
 
 Anything larger than the limit is downscaled and re-encoded with Pillow
@@ -151,6 +158,9 @@ OVERRIDE_KEYS = (
 )
 
 PAYLOAD_EXTENSIONS = (".elf", ".bin")
+
+# Repo-local icons for payloads whose upstream ships no usable artwork.
+LOCAL_ICON_DIR = "local_icons"
 
 MIME_SIGNATURES = (
     (b"\x89PNG\r\n\x1a\n", "image/png"),
@@ -464,6 +474,74 @@ def repo_icon_urls(owner: str, repo: str) -> list:
     return _repo_icon_cache[key]
 
 
+_local_icon_files = None
+
+
+def local_icon_files() -> dict:
+    """Map lowercased filename stem -> path for files in local_icons/."""
+    global _local_icon_files
+    if _local_icon_files is None:
+        _local_icon_files = {}
+        if os.path.isdir(LOCAL_ICON_DIR):
+            for name in sorted(os.listdir(LOCAL_ICON_DIR)):
+                stem, dot, ext = name.rpartition(".")
+                if not dot or f".{ext.lower()}" not in ICON_EXTENSIONS:
+                    continue
+                _local_icon_files.setdefault(stem.lower(), os.path.join(LOCAL_ICON_DIR, name))
+    return _local_icon_files
+
+
+def find_local_icon(owner: str, repo: str, payload_name: str):
+    """Find a hand-placed icon for this payload: <owner>-<repo>, <repo> or
+    <payload name>, in that order, in local_icons/."""
+    index = local_icon_files()
+    for candidate in (f"{owner}-{repo}", repo, payload_name):
+        path = index.get(candidate.lower())
+        if path:
+            return path
+    return None
+
+
+def load_icon_file(path: str):
+    """Encode an image already sitting in this repository."""
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError as exc:
+        print(f"  warning: could not read local icon {path}: {exc}", file=sys.stderr)
+        return None
+    return encode_icon(data)
+
+
+def icon_from_override(value: str):
+    """Resolve a links.txt icon= value: data URI, repo-local file, or URL."""
+    value = value.strip().strip("<>\"'")
+    if not value:
+        return None
+
+    if value.startswith("data:image/"):
+        header, _, payload = value.partition(",")
+        try:
+            raw = (
+                base64.b64decode(payload, validate=False)
+                if ";base64" in header
+                else urllib.parse.unquote_to_bytes(payload)
+            )
+        except (ValueError, TypeError) as exc:
+            print(f"  warning: malformed data URI for icon=: {exc}", file=sys.stderr)
+            return None
+        return encode_icon(raw, header[len("data:"):])
+
+    if value.startswith("@") or re.match(r"https?://", value):
+        return try_icon_url(resolve_icon_source(value), min_dim=0)
+
+    if os.path.isfile(value):
+        return load_icon_file(value)
+
+    print(f"  warning: icon= path not found: {value}", file=sys.stderr)
+    return None
+
+
 def fetch_bytes(url: str):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=15) as resp:
@@ -613,7 +691,7 @@ def try_icon_url(url: str, min_dim: int = ICON_MIN_DIM):
 
     try:
         data, declared_mime = fetch_bytes(url)
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
         print(f"  warning: could not fetch icon {url}: {exc}", file=sys.stderr)
         _icon_cache[url] = None
         return None
@@ -640,9 +718,10 @@ def icon_for_entry(entry: dict, fields: dict, icons: dict) -> bool:
     real upstream/overridden image was used, False for a generated tile.
 
     1. `icon=` override from links.txt, if given ('none' disables icons).
-    2. Best-scoring image found in the repo (tree, then README).
-    3. Repo owner's GitHub avatar.
-    4. Generated SVG placeholder - always fits, no external dependencies."""
+    2. A hand-placed image in local_icons/.
+    3. Best-scoring image found in the repo (tree, then README).
+    4. Repo owner's GitHub avatar.
+    5. Generated SVG placeholder - always fits, no external dependencies."""
     name = entry["name"]
     override = (fields.get("icon") or "").strip()
 
@@ -652,18 +731,26 @@ def icon_for_entry(entry: dict, fields: dict, icons: dict) -> bool:
         return False
 
     result = None
+    slug = github_slug(entry.get("source", "")) or github_slug(entry.get("source_direct", ""))
+
     if override:
-        icon_url = resolve_icon_source(override)
-        result = try_icon_url(icon_url, min_dim=0)
+        result = icon_from_override(override)
         if result is None:
-            print(f"  warning: icon= for {name!r} could not be used: {icon_url}", file=sys.stderr)
-    else:
-        slug = github_slug(entry.get("source", "")) or github_slug(entry.get("source_direct", ""))
-        if slug:
-            for candidate in repo_icon_urls(*slug):
-                result = try_icon_url(candidate)
-                if result is not None:
-                    break
+            print(f"  warning: icon= for {name!r} could not be used: {override}", file=sys.stderr)
+    elif slug:
+        local_path = find_local_icon(slug[0], slug[1], name)
+        if local_path:
+            result = load_icon_file(local_path)
+            if result is None:
+                print(f"  warning: local icon {local_path} could not be used", file=sys.stderr)
+            else:
+                print(f"  using local icon {local_path}")
+
+    if result is None and not override and slug:
+        for candidate in repo_icon_urls(*slug):
+            result = try_icon_url(candidate)
+            if result is not None:
+                break
 
     generated = result is None
     if generated:

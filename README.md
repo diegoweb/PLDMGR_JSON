@@ -47,12 +47,19 @@ github:quer3q/kraken-mount | Tools | Kraken USB mount | v0.1.0-beta | icon=https
 `PS5 Payload Manager` reads icons from `icons.json`, which stores each image inline as a data URI and is capped at **12,288 characters per icon** by PS5 WebKit. The generator picks, in order:
 
 1. An `icon=` override in `links.txt`.
-2. The best image found in the repo itself — its default branch is scanned for anything named like an icon, logo or banner (`icon0`, `icon`, `logo`, `avatar`, `brand`, `banner`, …), wherever it lives (`ps5/icon0.png`, `sce_sys/icon0.png`, `docs/logo.png`, …). Images below 48px, screenshots, QR codes and splash art are ignored. A project banner beats the owner's avatar.
-3. Images the repo README displays, scored the same way.
-4. The repo owner's GitHub avatar.
-5. A generated letter tile, so nothing is ever iconless.
+2. A hand-placed image in [`local_icons/`](local_icons/README.md) — for payloads whose upstream has no logo.
+3. The best image found in the repo itself — its default branch is scanned for anything named like an icon, logo or banner (`icon0`, `icon`, `logo`, `avatar`, `brand`, `banner`, …), wherever it lives (`ps5/icon0.png`, `sce_sys/icon0.png`, `docs/logo.png`, …). Images below 48px, screenshots, QR codes and splash art are ignored. A project banner beats the owner's avatar.
+4. Images the repo README displays, scored the same way.
+5. The repo owner's GitHub avatar.
+6. A generated letter tile, so nothing is ever iconless.
 
 Larger images are downscaled to 128px with Pillow and re-encoded (PNG, palette PNG, or JPEG) until they fit the limit; non-square art is center-cropped, and a wide banner is drawn whole over a blurred copy of itself so it fills the tile without losing anything. Pillow comes from [`requirements.txt`](requirements.txt); without it oversized images fall back to the letter tile.
+
+#### Payloads with no logo upstream
+
+Drop the image in `local_icons/` named after the repo — `orbit-store-ps5.svg`, `saawant12-orbit-store-ps5.svg`, or the payload name. It is used automatically and beats everything except an explicit `icon=`. See [`local_icons/README.md`](local_icons/README.md) for the naming rules.
+
+Keep the image in the repository rather than pasting base64 into `links.txt`: a checked-in file is reviewable in diffs, easy to replace, survives a re-clone, and is already present in the CI checkout.
 
 To pin a specific logo, add `icon=` to the line in `links.txt`:
 
@@ -62,6 +69,9 @@ github:quer3q/kraken-mount | icon=https://raw.githubusercontent.com/quer3q/krake
 
 # a GitHub file page URL works too (converted to raw automatically)
 github:quer3q/kraken-mount | icon=https://github.com/quer3q/kraken-mount/blob/main/docs/logo.png
+
+# a file from this repository
+github:saawant12/orbit-store-ps5 | icon=local_icons/orbit-store-ps5.svg
 
 # the owner's avatar
 github:quer3q/kraken-mount | icon=@quer3q
