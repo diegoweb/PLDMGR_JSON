@@ -1,0 +1,4 @@
+# Icon downscaling: keeps repo logos/avatars under the PS5 WebKit 12,288-char
+# data URI limit in icons.json. Without it, oversized images fall back to the
+# generated letter tile.
+Pillow>=10
