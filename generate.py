@@ -34,6 +34,9 @@ One entry per line. Blank lines and lines starting with '#' are ignored.
                            asset that is the actual payload to run.
                            Recorded on the entry if the asset itself
                            isn't a raw payload file.
+     icon=...             override the payload icon — a direct image URL,
+                           a GitHub blob URL, @owner, or `none` to
+                           disable the icon (details under Icons below)
 
    `version` defaults to the release tag; `description` defaults to the
    release name; `last_update` is always taken from the release's
@@ -55,22 +58,52 @@ release has none, that repo is skipped with a warning. For direct URL
 entries, a URL whose filename doesn't end in .elf or .bin is skipped
 with a warning rather than included.
 
-Icons: mirrors the real algorithm found in itsPLK/ps5-payloads-mirror's
-set_icon.py (get_suggested_icon). For each payload with a GitHub
-`source`, we check a handful of common asset paths on that repo's main
-branch (assets/icon0.png, icon0.png, assets/icon.png, icon.png,
-assets/logo.png, logo.png) via raw.githubusercontent.com; the first one
-that exists is used. If none exist, we fall back to the repo owner's
-GitHub avatar (https://github.com/<owner>.png) — this matches
-itsPLK's data, where unrelated repos under the same GitHub org end up
-sharing one icon_key because they share one avatar image. `icon_key` is
-the SHA-256 of the downloaded image's raw bytes, so identical images
-naturally dedupe to the same key, same as the upstream data shows.
-Entries from a bare direct URL (no GitHub `source` to search) get no
-icon unless manually overridden with `icon=<url>` in links.txt.
+Icons
+-----
+PS5 Payload Manager stores icons in icons.json as data URIs, keyed by
+icon_key (SHA-256 of the stored image bytes), and PS5 WebKit rejects any
+data URI at or above 12,288 characters. Everything below exists to put a
+real image into that budget instead of a generated letter tile.
+
+For each entry, the icon is resolved in this order:
+
+  1. `icon=<value>` override in links.txt, if present. Accepted forms:
+       icon=https://example.com/logo.png   any direct image URL
+       icon=https://github.com/o/r/blob/main/docs/logo.png
+                                           GitHub blob URL (converted to raw)
+       icon=@owner or icon=https://github.com/owner
+                                           that account's avatar
+       icon=none                           no icon at all (no icon_key)
+  2. Otherwise, for entries whose source is a GitHub repo: the repo's
+     default branch is read, its file tree is listed, and every image in
+     the repo is scored by filename (icon0 > launcher/app icon > icon >
+     logo > avatar > emblem/brand/mark > banner), path depth and file
+     type. Screenshots, QR codes, flags, donation links, social previews,
+     splash/background art and build fixtures are excluded. The best
+     scoring candidate is used; images below 48px (favicons, thumbnails)
+     are skipped. A wide banner beats the owner avatar, because it is the
+     project's own artwork.
+  3. Images referenced from the repo README are scored the same way and
+     tried next, so a logo that only lives in docs/ and is displayed via
+     <img src="docs/logo.png"> is still found.
+  4. The repo owner's GitHub avatar (https://github.com/<owner>.png?size=128),
+     which is already small enough to pass the limit uncompressed.
+  5. A generated gradient SVG with the payload's initials, so every entry
+     always has something to show.
+
+Anything larger than the limit is downscaled and re-encoded with Pillow
+(128px max, PNG, then palette-quantized PNG or JPEG if that is still too
+big). Images that are not square are shaped for the square tile: a
+mildly non-square image is center-cropped, and a wide banner is drawn
+whole on a blurred, darkened copy of itself so nothing is cut off.
+Pillow is optional: without it, oversized images fall back to the
+generated SVG and a warning is printed, so `pip install -r
+requirements.txt` (done in CI) is what makes real icons work for large
+PNGs.
+
 icons.json ends up as {"icons": {<icon_key>: "data:image/<type>;base64,..."}},
 referenced from payloads.json via top-level "icons_url" and per-entry
-"icon_key".
+"icon_key". Identical images dedupe to one key automatically.
 
 REPO_NAME overrides the top-level catalog name via env var.
 GITHUB_TOKEN, if set, authenticates GitHub API calls.
@@ -78,14 +111,23 @@ GITHUB_TOKEN, if set, authenticates GitHub API calls.
 
 import base64
 import hashlib
+import io
 import json
 import os
+import posixpath
 import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+
+try:  # optional: downscales oversized icons below the PS5 WebKit limit
+    from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+    HAVE_PIL = True
+except ImportError:  # pragma: no cover - CI installs Pillow
+    Image = ImageEnhance = ImageFilter = ImageOps = None
+    HAVE_PIL = False
 
 LINKS_FILE = "links.txt"
 OUTPUT_FILE = "payloads.json"
@@ -110,15 +152,6 @@ OVERRIDE_KEYS = (
 
 PAYLOAD_EXTENSIONS = (".elf", ".bin")
 
-ICON_ASSET_PATHS = (
-    "assets/icon0.png",
-    "icon0.png",
-    "assets/icon.png",
-    "icon.png",
-    "assets/logo.png",
-    "logo.png",
-)
-
 MIME_SIGNATURES = (
     (b"\x89PNG\r\n\x1a\n", "image/png"),
     (b"\xff\xd8\xff", "image/jpeg"),
@@ -130,6 +163,45 @@ MIME_SIGNATURES = (
 
 # PS5 WebKit hard limit on data URI length in icons.json
 ICON_MAX_CHARS = 12288
+# Aim slightly under the hard limit when re-encoding
+ICON_TARGET_CHARS = 12000
+ICON_MAX_DIM = 128
+ICON_MIN_DIM = 48  # anything smaller is a favicon/thumbnail, not a tile icon
+GITHUB_AVATAR_RES = 128
+
+ICON_EXTENSIONS = (".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif")
+
+# Paths that are never a project icon even when their filename matches.
+ICON_SKIP_MARKERS = (
+    "screenshot",
+    "social-preview",
+    "coming-soon",
+    "splash",
+    "background",
+    "/bg.",
+    "/qr/",
+    "-qr.",
+    "/flags/",
+    "donate",
+    "sponsor",
+    "shields.io",
+    "node_modules",
+    "/test/",
+    "/tests/",
+    "/fixtures/",
+    "/example",
+    "/sample",
+    ".github/",
+    "license",
+    "changelog",
+    "/vendor/",
+)
+
+ICON_EXT_BONUS = {"png": 0, "svg": 4, "jpg": 12, "jpeg": 12, "webp": 25, "gif": 30}
+
+# A candidate must score at or below this to be picked automatically: it has
+# to look like a deliberate icon/logo/banner, not just any image in the repo.
+ICON_MAX_AUTO_SCORE = 160
 
 # Gradient palette for fallback SVG icons
 ICON_PALETTE = [
@@ -152,10 +224,19 @@ ICON_SVG_TEMPLATE = (
     "</svg>"
 )
 
-_icon_cache = {}  # source URL -> (icon_key, data_uri)
+_icon_cache = {}  # source URL -> (icon_key, data_uri) or None
+_repo_icon_cache = {}  # (owner, repo) -> [candidate URLs]
+
+_RESAMPLING = getattr(Image, "Resampling", Image) if Image else None
+_QUANTIZE = getattr(Image, "Quantize", Image) if Image else None
+
+MD_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?")
+HTML_IMAGE_RE = re.compile(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
 
 
 def sniff_mime(data: bytes) -> str:
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
     for sig, mime in MIME_SIGNATURES:
         if data.startswith(sig):
             return mime
@@ -184,80 +265,415 @@ def make_svg_icon(name: str) -> tuple:
     return icon_key, data_uri
 
 
-def url_exists(url: str) -> bool:
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+def _hint_score(text: str):
+    """Rank a filename/alt-text by how deliberately icon-like it is.
+    Lower is better; None means 'not an icon name'."""
+    value = text.lower()
+    if "icon0" in value:
+        return 0
+    if "launcher" in value or "appicon" in value or "app-icon" in value:
+        return 10
+    if "icon" in value:
+        return 30
+    if "logo" in value:
+        return 60
+    if "avatar" in value:
+        return 70
+    if "emblem" in value:
+        return 80
+    if "brand" in value:
+        return 90
+    if re.search(r"(?:^|[-_.\s])mark(?:[-_.\s]|$)", value):
+        return 100
+    if "banner" in value:
+        return 110
+    return None
+
+
+def score_icon_path(path: str, context: str = ""):
+    """Score a repo file (or README image) as an icon candidate.
+    Returns None when the path is not an image or should never be used."""
+    lower = path.lower()
+    if not lower.endswith(ICON_EXTENSIONS):
+        return None
+    if any(marker in lower for marker in ICON_SKIP_MARKERS):
+        return None
+
+    name = lower.rsplit("/", 1)[-1]
+    hint = _hint_score(name)
+    if hint is None and context:
+        hint = _hint_score(context)
+    if hint is None:
+        return None
+
+    ext = name.rsplit(".", 1)[-1]
+    score = hint + lower.count("/") * 6 + ICON_EXT_BONUS.get(ext, 40)
+    if "favicon" in name:
+        score += 80  # small, usually 16-32px
+    return score
+
+
+def github_slug(source: str):
+    """Pull (owner, repo) out of a GitHub URL, or None."""
+    if not source:
+        return None
+    match = re.search(r"https?://github\.com/([^/?#]+)/([^/?#]+)", source)
+    if not match:
+        return None
+    repo = match.group(2)
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    return match.group(1), repo
+
+
+def resolve_icon_source(value: str) -> str:
+    """Normalize a links.txt icon= value into a fetchable image URL."""
+    value = value.strip().strip("<>\"'")
+    if value.startswith("@"):
+        return f"https://github.com/{value[1:].strip()}.png?size={GITHUB_AVATAR_RES}"
+
+    profile = re.fullmatch(r"https?://github\.com/([A-Za-z0-9_.-]+)/?", value)
+    if profile:
+        return f"https://github.com/{profile.group(1)}.png?size={GITHUB_AVATAR_RES}"
+
+    blob = re.match(r"https?://github\.com/([^/]+)/([^/]+)/(?:blob|raw)/([^/]+)/(.+)$", value)
+    if blob:
+        owner, repo, branch, path = blob.groups()
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+
+    return value
+
+
+def _readme_image_urls(owner: str, repo: str, branch: str) -> list:
+    """Image URLs referenced by the repo README, resolved to raw URLs."""
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            return resp.status == 200
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
-        return False
+        readme = gh_request(f"/repos/{owner}/{repo}/readme")
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            print(f"  note: could not read README for {owner}/{repo}: {exc}")
+        return []
+    except (urllib.error.URLError, ValueError) as exc:
+        print(f"  note: could not read README for {owner}/{repo}: {exc}")
+        return []
 
-
-def find_repo_icon_url(owner: str, repo: str) -> str:
-    """Check common asset paths on the repo's main branch; fall back to
-    the owner's GitHub avatar. Mirrors set_icon.py's get_suggested_icon()."""
-    for path in ICON_ASSET_PATHS:
-        candidate = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{path}"
-        if url_exists(candidate):
-            return candidate
-    return f"https://github.com/{owner}.png"
-
-
-def fetch_icon(icon_url: str):
-    """Download icon_url and return (icon_key, data_uri), or None on failure.
-    Returns None if the resulting data URI would exceed ICON_MAX_CHARS —
-    caller should fall back to make_svg_icon(). Cached by URL."""
-    if icon_url in _icon_cache:
-        return _icon_cache[icon_url]
-
-    req = urllib.request.Request(icon_url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = resp.read()
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
-        print(f"warning: could not fetch icon {icon_url}: {exc}", file=sys.stderr)
+        text = base64.b64decode(readme.get("content", "")).decode("utf-8", "ignore")
+    except (ValueError, TypeError):
+        return []
+
+    base_dir = posixpath.dirname(readme.get("path") or "")
+    found = [(src, alt) for alt, src in MD_IMAGE_RE.findall(text)]
+    found += [(src, "") for src in HTML_IMAGE_RE.findall(text)]
+
+    urls = []
+    for src, alt in found:
+        src = src.strip().strip("<>\"'")
+        if not src or src.startswith("data:") or src in ("", "#"):
+            continue
+        if src.startswith("//"):
+            url = "https:" + src
+        elif re.match(r"https?://", src):
+            if "shields.io" in src or "/badge" in src:
+                continue
+            url = src
+        elif re.match(r"[A-Za-z][A-Za-z0-9+.-]*:", src):
+            continue  # mailto:, ftp:, etc.
+        else:
+            rel = src.lstrip("/") if src.startswith("/") else posixpath.join(base_dir, src)
+            rel = posixpath.normpath(rel)
+            if rel.startswith(".."):
+                continue
+            url = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/"
+                f"{urllib.parse.quote(rel)}"
+            )
+        urls.append((url, alt))
+    return urls
+
+
+def repo_icon_candidates(owner: str, repo: str) -> list:
+    """Ordered list of image URLs that could be this repo's icon.
+
+    The repo's real default branch is used (not a hardcoded 'main'), the
+    whole file tree is searched (so docs/logo.png, ps5/icon0.png and
+    sce_sys/icon0.png are all found), README-embedded images are tried
+    next, and the owner's avatar is the last resort."""
+    try:
+        meta = gh_request(f"/repos/{owner}/{repo}")
+        branch = meta.get("default_branch") or "main"
+    except (urllib.error.URLError, urllib.error.HTTPError, ValueError, AttributeError) as exc:
+        print(f"  warning: could not read repo metadata for {owner}/{repo}: {exc}", file=sys.stderr)
+        branch = "main"
+
+    scored = []
+    try:
+        tree = gh_request(
+            f"/repos/{owner}/{repo}/git/trees/{urllib.parse.quote(branch)}?recursive=1"
+        )
+        for node in tree.get("tree", []):
+            if node.get("type") != "blob":
+                continue
+            path = node.get("path", "")
+            score = score_icon_path(path)
+            if score is None:
+                # A root-level image named after the repo (ProsperoMgr.png)
+                # is a weak but real hint - keep it as a late fallback.
+                stem, _, ext = path.rpartition(".")
+                if (
+                    "/" not in path
+                    and f".{ext.lower()}" in ICON_EXTENSIONS
+                    and stem.lower() == repo.lower()
+                ):
+                    score = 120
+                else:
+                    continue
+            if score > ICON_MAX_AUTO_SCORE:
+                continue
+            url = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/"
+                f"{urllib.parse.quote(path)}"
+            )
+            scored.append((score, path, url))
+    except (urllib.error.URLError, urllib.error.HTTPError, ValueError, AttributeError) as exc:
+        print(f"  warning: could not list files for {owner}/{repo}: {exc}", file=sys.stderr)
+
+    for url, alt in _readme_image_urls(owner, repo, branch):
+        path = urllib.parse.urlparse(url).path
+        score = score_icon_path(path, context=alt)
+        if score is None or score > ICON_MAX_AUTO_SCORE:
+            continue
+        scored.append((score, path, url))
+
+    scored.sort(key=lambda item: (item[0], item[1]))
+
+    urls = []
+    for _, _, url in scored:
+        if url not in urls:
+            urls.append(url)
+    urls.append(f"https://github.com/{owner}.png?size={GITHUB_AVATAR_RES}")
+
+    if urls[:-1]:
+        print(f"  icon candidates for {owner}/{repo}: {', '.join(urls[:-1][:3])}")
+    return urls[:6]
+
+
+def repo_icon_urls(owner: str, repo: str) -> list:
+    key = (owner.lower(), repo.lower())
+    if key not in _repo_icon_cache:
+        _repo_icon_cache[key] = repo_icon_candidates(owner, repo)
+    return _repo_icon_cache[key]
+
+
+def fetch_bytes(url: str):
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.read(), resp.headers.get("Content-Type", "")
+
+
+def image_dimensions(data: bytes):
+    if not HAVE_PIL:
+        return None
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            return img.size
+    except Exception:
+        return None
+
+
+def _b64_uri(mime: str, raw: bytes) -> str:
+    return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+
+
+def _svg_data_uri(data: bytes):
+    text = data.decode("utf-8", "ignore")
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    text = re.sub(r">\s+<", "><", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    raw = text.encode("utf-8")
+    return hashlib.sha256(raw).hexdigest(), _b64_uri("image/svg+xml", raw)
+
+
+def _to_tile(img):
+    """Shape a non-square image for a square tile.
+
+    Wide art (banners, 3:1) keeps its full frame on a blurred, darkened
+    copy of itself, so nothing is cropped and the tile is not half empty.
+    Mildly non-square art is center-cropped."""
+    width, height = img.size
+    if not width or not height:
+        return img
+
+    ratio = max(width, height) / min(width, height)
+    if ratio <= 1.15:
+        return img
+
+    if ratio <= 1.7:
+        side = min(width, height)
+        left = (width - side) // 2
+        top = (height - side) // 2
+        return img.crop((left, top, left + side, top + side))
+
+    size = ICON_MAX_DIM
+    scale = size / min(width, height)
+    backdrop = img.convert("RGB").resize(
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        _RESAMPLING.LANCZOS,
+    )
+    left = max(0, (backdrop.width - size) // 2)
+    top = max(0, (backdrop.height - size) // 2)
+    backdrop = backdrop.crop((left, top, left + size, top + size))
+    backdrop = backdrop.filter(ImageFilter.GaussianBlur(5))
+    backdrop = ImageEnhance.Brightness(backdrop).enhance(0.45)
+
+    foreground = img.copy()
+    foreground.thumbnail((size, size), _RESAMPLING.LANCZOS)
+    backdrop.paste(
+        foreground,
+        ((size - foreground.width) // 2, (size - foreground.height) // 2),
+        foreground if foreground.mode == "RGBA" else None,
+    )
+    return backdrop
+
+
+def _compress_with_pil(data: bytes):
+    """Downscale to <= ICON_MAX_DIM and re-encode until it fits the limit."""
+    try:
+        img = Image.open(io.BytesIO(data))
+    except Exception as exc:
+        print(f"  warning: could not decode icon image: {exc}", file=sys.stderr)
+        return None
+
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+
+    rgba = _to_tile(img.convert("RGBA"))
+    has_alpha = rgba.mode == "RGBA" and rgba.split()[-1].getextrema()[0] < 250
+    base = rgba if has_alpha else rgba.convert("RGB")
+
+    for dim in (ICON_MAX_DIM, 96, 80, 64, 48):
+        frame = base.copy()
+        frame.thumbnail((dim, dim), _RESAMPLING.LANCZOS)
+
+        attempts = []
+        buf = io.BytesIO()
+        frame.save(buf, format="PNG", optimize=True)
+        attempts.append(("image/png", buf.getvalue()))
+
+        if has_alpha:
+            for colors in (128, 64, 32):
+                buf = io.BytesIO()
+                quantized = frame.quantize(colors=colors, method=_QUANTIZE.FASTOCTREE)
+                quantized.save(buf, format="PNG", optimize=True)
+                attempts.append(("image/png", buf.getvalue()))
+        else:
+            for quality in (85, 80, 70):
+                buf = io.BytesIO()
+                frame.save(buf, format="JPEG", quality=quality, optimize=True)
+                attempts.append(("image/jpeg", buf.getvalue()))
+
+        for mime, raw in attempts:
+            uri = _b64_uri(mime, raw)
+            if len(uri) <= ICON_TARGET_CHARS:
+                return hashlib.sha256(raw).hexdigest(), uri
+
+    return None
+
+
+def encode_icon(data: bytes, declared_mime: str = ""):
+    """Turn raw image bytes into (icon_key, data URI), or None if the result
+    cannot be stored under ICON_MAX_CHARS."""
+    if not data:
         return None
 
     mime = sniff_mime(data)
-    data_uri = f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
+    if mime == "application/octet-stream" and declared_mime.startswith("image/"):
+        mime = declared_mime.split(";")[0].strip()
 
-    if len(data_uri) > ICON_MAX_CHARS:
-        # Too large for PS5 WebKit — caller will use SVG fallback instead
-        _icon_cache[icon_url] = None
+    if mime == "image/svg+xml":
+        result = _svg_data_uri(data)
+        if len(result[1]) <= ICON_TARGET_CHARS:
+            return result
+
+    if mime in ("image/png", "image/jpeg"):
+        uri = _b64_uri(mime, data)
+        if len(uri) <= ICON_TARGET_CHARS:
+            return hashlib.sha256(data).hexdigest(), uri
+
+    if HAVE_PIL:
+        return _compress_with_pil(data)
+    return None
+
+
+def try_icon_url(url: str, min_dim: int = ICON_MIN_DIM):
+    """Download url and return (icon_key, data_uri) or None. Cached by URL."""
+    if url in _icon_cache:
+        return _icon_cache[url]
+
+    try:
+        data, declared_mime = fetch_bytes(url)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+        print(f"  warning: could not fetch icon {url}: {exc}", file=sys.stderr)
+        _icon_cache[url] = None
         return None
 
-    icon_key = hashlib.sha256(data).hexdigest()
-    result = (icon_key, data_uri)
-    _icon_cache[icon_url] = result
+    dims = image_dimensions(data)
+    if min_dim and dims and min(dims) < min_dim:
+        print(f"  skipping {url}: only {dims[0]}x{dims[1]}px")
+        _icon_cache[url] = None
+        return None
+
+    result = encode_icon(data, declared_mime)
+    if result is None:
+        hint = "" if HAVE_PIL else " (install Pillow to enable downscaling)"
+        print(
+            f"  warning: could not fit {url} under {ICON_MAX_CHARS} chars{hint}",
+            file=sys.stderr,
+        )
+    _icon_cache[url] = result
     return result
 
 
-def icon_for_entry(entry: dict, fields: dict, icons: dict) -> None:
-    """Attach icon_key to entry and populate icons dict.
-    1. Try a real fetched icon (repo asset path or GitHub avatar).
-    2. If fetch fails or result exceeds 12,288 chars, fall back to a
-       small generated SVG — always fits, no external dependencies."""
+def icon_for_entry(entry: dict, fields: dict, icons: dict) -> bool:
+    """Attach icon_key to entry and populate icons dict. Returns True when a
+    real upstream/overridden image was used, False for a generated tile.
+
+    1. `icon=` override from links.txt, if given ('none' disables icons).
+    2. Best-scoring image found in the repo (tree, then README).
+    3. Repo owner's GitHub avatar.
+    4. Generated SVG placeholder - always fits, no external dependencies."""
     name = entry["name"]
-    icon_url = fields.get("icon")
+    override = (fields.get("icon") or "").strip()
 
-    if not icon_url:
-        source = entry.get("source", "")
-        match = re.search(r"https?://github\.com/([^/]+)/([^/]+)", source)
-        if match:
-            owner, repo = match.group(1), match.group(2).rstrip("/")
-            icon_url = find_repo_icon_url(owner, repo)
+    if override.lower() in ("none", "off", "-"):
+        entry.pop("icon_key", None)
+        print(f"  icons disabled for {name!r}")
+        return False
 
-    result = fetch_icon(icon_url) if icon_url else None
+    result = None
+    if override:
+        icon_url = resolve_icon_source(override)
+        result = try_icon_url(icon_url, min_dim=0)
+        if result is None:
+            print(f"  warning: icon= for {name!r} could not be used: {icon_url}", file=sys.stderr)
+    else:
+        slug = github_slug(entry.get("source", "")) or github_slug(entry.get("source_direct", ""))
+        if slug:
+            for candidate in repo_icon_urls(*slug):
+                result = try_icon_url(candidate)
+                if result is not None:
+                    break
 
-    if result is None:
-        # Fall back to generated SVG placeholder
+    generated = result is None
+    if generated:
         result = make_svg_icon(name)
-        if icon_url:
-            print(f"  icon too large or unavailable, using SVG placeholder for {name!r}")
+        print(f"  using generated placeholder icon for {name!r}")
 
     icon_key, data_uri = result
     entry["icon_key"] = icon_key
     icons[icon_key] = data_uri
+    return not generated
 
 
 def gh_request(path: str) -> dict:
@@ -468,8 +884,11 @@ def main() -> int:
         return 1
 
     icons = {}
+    placeholder_names = []
     for entry, fields in zip(payloads, entry_fields):
-        icon_for_entry(entry, fields, icons)
+        if not icon_for_entry(entry, fields, icons):
+            if entry.get("icon_key"):
+                placeholder_names.append(entry["name"])
 
     catalog = {
         "name": REPO_NAME,
@@ -487,6 +906,14 @@ def main() -> int:
 
     print(f"wrote {len(payloads)} payload(s) to {OUTPUT_FILE}")
     print(f"wrote {len(icons)} icon(s) to {ICONS_FILE}")
+    reused = len(payloads) - len(placeholder_names)
+    print(f"icons: {reused} upstream/override, {len(placeholder_names)} generated placeholder(s)")
+    if placeholder_names and not HAVE_PIL:
+        print(
+            "note: install Pillow (pip install -r requirements.txt) to downscale "
+            "large icons below the 12,288-char limit",
+            file=sys.stderr,
+        )
     return 0
 
 
