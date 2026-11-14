@@ -51,3 +51,4 @@ github:ps5-payload-dev/klogsrv
 github:ps5-payload-dev/shsrv
 github:ps5-payload-dev/websrv
 github:seregonwar/zftpd
+github:quer3q/kraken-mount
