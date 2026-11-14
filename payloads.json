@@ -13,7 +13,7 @@
       "version": "v1.0.2",
       "category": "Uncategorized",
       "checksum": "6ab006d92685e1ef67f9984549a5d4e8df24f6f59b2452e77c2737be6ed7df5a",
-      "icon_key": "f2b690044e982ef936dc705e4ee296881891273e4eedc05975d4fde2170b38dc"
+      "icon_key": "0055d360edcba8f92835ad552898430a99a12f631df5d5e485ffd99578407469"
     },
     {
       "name": "PS5-TabShifter",
@@ -39,7 +39,7 @@
       "version": "v0.3.13",
       "category": "Uncategorized",
       "checksum": "257cce632b9ad701094dad3f8c0206ff87ab6b417415a57ebfd558c5ee3b0c50",
-      "icon_key": "ced589d070747df3be0c119b90afd553be1bbf9a5896e1ff0d46b1c7eed42dbc"
+      "icon_key": "88440c75f9ec43c41d9fa9b2dec0dc86fa24e2c30259204b4328c0c1e50d04a0"
     },
     {
       "name": "OmniPad-PS5",
@@ -65,7 +65,7 @@
       "version": "v1.2",
       "category": "Uncategorized",
       "checksum": "127394cc4f1ac7347fea509e010e80bab7b5ee13d820665474cdc3928d173bce",
-      "icon_key": "7dd570343b6f03f93c7c23ab2bbd6f750e310a59e40ec29c7d748cbfcd949616"
+      "icon_key": "3043651eb47c6bef0b103def21a15c4dedaf7008388c81459bce9d1e6d5391a9"
     },
     {
       "name": "apr-emu-updater",
@@ -77,7 +77,7 @@
       "version": "v2.0.6",
       "category": "Uncategorized",
       "checksum": "4f04464283a6a551883e40e36b59134ecad0e38ecbb7ea89cbec3f91a3bd9122",
-      "icon_key": "a093917de9b3a893e2aedfc84736cf823bfca150cd60fa456089abbc954ce613"
+      "icon_key": "108ffa299ec55581f2dc921351daa0b3f13bc916dc423431a69501a06da0d2da"
     },
     {
       "name": "Ghostcontrol-PS5-USB-Controller-Patcher",
@@ -90,7 +90,7 @@
       "version": "v2.2.5-beta",
       "category": "Uncategorized",
       "checksum": "9252b95bdf019f83628e454d03c15709fd2a59abf1f218e3d02f141eae1e9a19",
-      "icon_key": "a726adf1379af65c7ae994ddccfe2595a7c211bd538a76ca2f007e75d762d0eb"
+      "icon_key": "550a2735ae67373d6dc631bd214b517dd9013311a30507f8b0e59cb37be94148"
     },
     {
       "name": "PS-Play",
@@ -103,7 +103,7 @@
       "version": "2.1",
       "category": "Uncategorized",
       "checksum": "e3392379d5bc6ca4e44cb0d2a1d8921083b2c3ea480725f68378831874542d8d",
-      "icon_key": "116036a4ce89767532f8d1b77149d237a4a0b68c4c599cad45be29dc3629b965"
+      "icon_key": "0b5316ef79b1afac32bbeb380363561424be44e8b1f416a7246f888267ee05fb"
     },
     {
       "name": "kraken-mount",
@@ -116,7 +116,7 @@
       "version": "v0.0.1-beta",
       "category": "Uncategorized",
       "checksum": "32cdf8e9aee9a8e91a7acd8884ac4701a75a38d96d483ea00bb7cbf4fe11a522",
-      "icon_key": "41a99d051103ceb1f9c8df50963fbf3edd0695b013cddc559915d83bd8489007"
+      "icon_key": "6a9101d613a158f2456b0f0eb00c7b467fa990f0f3fbb3192fb71b27485b4a4f"
     },
     {
       "name": "orbit-store-ps5",
