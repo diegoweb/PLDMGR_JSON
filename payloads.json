@@ -13,7 +13,7 @@
       "version": "v1.0.2",
       "category": "Uncategorized",
       "checksum": "6ab006d92685e1ef67f9984549a5d4e8df24f6f59b2452e77c2737be6ed7df5a",
-      "icon_key": "1ffe2e4a5764f2ce60af2920bf70926a9d42ee6d6b72b72205fd218babc025b4"
+      "icon_key": "f2b690044e982ef936dc705e4ee296881891273e4eedc05975d4fde2170b38dc"
     },
     {
       "name": "PS5-TabShifter",
@@ -39,7 +39,7 @@
       "version": "v0.3.13",
       "category": "Uncategorized",
       "checksum": "257cce632b9ad701094dad3f8c0206ff87ab6b417415a57ebfd558c5ee3b0c50",
-      "icon_key": "f7106cef58de2cfa2acc8d9ded7f1f47c7ac659d31e32835fb8cd28865327739"
+      "icon_key": "ced589d070747df3be0c119b90afd553be1bbf9a5896e1ff0d46b1c7eed42dbc"
     },
     {
       "name": "OmniPad-PS5",
@@ -52,7 +52,7 @@
       "version": "v1.0.4-hotfix1",
       "category": "Uncategorized",
       "checksum": "00677d6cfac752f1da395d2aeddfee1b5f8f3a3175c524bb0ca90afd9ea0d624",
-      "icon_key": "2a6eb6fc3e76f28f6fbcf516010824d016a5a5f56dd9c053e78ae3b574e935d5"
+      "icon_key": "537dfa94b76bc1283f850220ea408a4061cd53cf5c3e8de483acd1cd21d8f941"
     },
     {
       "name": "ProsperoMgr",
@@ -65,7 +65,7 @@
       "version": "v1.2",
       "category": "Uncategorized",
       "checksum": "127394cc4f1ac7347fea509e010e80bab7b5ee13d820665474cdc3928d173bce",
-      "icon_key": "a2ca17ecb8f4c56428b98c6f799f4f3e48d2a0dde40aa0d047396956686b65c9"
+      "icon_key": "7dd570343b6f03f93c7c23ab2bbd6f750e310a59e40ec29c7d748cbfcd949616"
     },
     {
       "name": "apr-emu-updater",
@@ -103,7 +103,7 @@
       "version": "2.1",
       "category": "Uncategorized",
       "checksum": "e3392379d5bc6ca4e44cb0d2a1d8921083b2c3ea480725f68378831874542d8d",
-      "icon_key": "6283134d56a171df338fa515d391966a1c8b9dd1a92c21d29dfcf6bfa80bb2c3"
+      "icon_key": "116036a4ce89767532f8d1b77149d237a4a0b68c4c599cad45be29dc3629b965"
     },
     {
       "name": "kraken-mount",
@@ -116,7 +116,7 @@
       "version": "v0.0.1-beta",
       "category": "Uncategorized",
       "checksum": "32cdf8e9aee9a8e91a7acd8884ac4701a75a38d96d483ea00bb7cbf4fe11a522",
-      "icon_key": "2d3aac6bf74cad50ac006ff966a2d9d0baf59f3a77407132ad38913eac2b820e"
+      "icon_key": "41a99d051103ceb1f9c8df50963fbf3edd0695b013cddc559915d83bd8489007"
     },
     {
       "name": "orbit-store-ps5",
@@ -129,7 +129,7 @@
       "version": "v1.9.0",
       "category": "Uncategorized",
       "checksum": "4d2b78ad4c0de1211b93664d5401beb1e19e54452fccc74886d4cb63b659439a",
-      "icon_key": "817d828e4be44954eb4c832579187609f884861c6739c60c0f9dedcbeea345e7"
+      "icon_key": "0e0c612f47ab355592d5cb556378fb34f1ba81dd6a90a15eece7ee5f64a68204"
     }
   ]
 }
