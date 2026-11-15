@@ -57,14 +57,14 @@
     {
       "name": "ProsperoMgr",
       "filename": "ProsperoMgr.elf",
-      "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.2/ProsperoMgr.elf",
+      "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.2.1/ProsperoMgr.elf",
       "source": "https://github.com/notmaj0r/ProsperoMgr/releases",
-      "source_direct": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.2/ProsperoMgr.elf",
-      "description": "v1.2",
-      "last_update": "2026-11-09",
-      "version": "v1.2",
+      "source_direct": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.2.1/ProsperoMgr.elf",
+      "description": "v1.2.1",
+      "last_update": "2026-11-15",
+      "version": "v1.2.1",
       "category": "Uncategorized",
-      "checksum": "127394cc4f1ac7347fea509e010e80bab7b5ee13d820665474cdc3928d173bce",
+      "checksum": "f9240e53ac5f035b36fb6eca2845dd49827eddfb133d1bbb2810b1a025db9c5b",
       "icon_key": "3043651eb47c6bef0b103def21a15c4dedaf7008388c81459bce9d1e6d5391a9"
     },
     {
@@ -121,14 +121,14 @@
     {
       "name": "orbit-store-ps5",
       "filename": "orbit_store.elf",
-      "url": "https://github.com/saawant12/orbit-store-ps5/releases/download/v1.9.0/orbit_store.elf",
+      "url": "https://github.com/saawant12/orbit-store-ps5/releases/download/v1.9.1/orbit_store.elf",
       "source": "https://github.com/saawant12/orbit-store-ps5/releases",
-      "source_direct": "https://github.com/saawant12/orbit-store-ps5/releases/download/v1.9.0/orbit_store.elf",
-      "description": "Orbit Store 1.9.0 (Beta)",
-      "last_update": "2026-11-13",
-      "version": "v1.9.0",
+      "source_direct": "https://github.com/saawant12/orbit-store-ps5/releases/download/v1.9.1/orbit_store.elf",
+      "description": "Orbit Store 1.9.1 (Beta)",
+      "last_update": "2026-11-15",
+      "version": "v1.9.1",
       "category": "Uncategorized",
-      "checksum": "4d2b78ad4c0de1211b93664d5401beb1e19e54452fccc74886d4cb63b659439a",
+      "checksum": "88caf08827cd8141fc18e1d293480633343e0f6f92aa9a43e07de8ee5a497738",
       "icon_key": "b3ea27d8f60af93378dedb6c2bbb7d243ae147add1e289cfa9da28ebd1d3e9e8"
     }
   ]
