@@ -130,19 +130,6 @@
       "category": "Uncategorized",
       "checksum": "5fe4892269ebe940731d0236cd1bbca8d827e7690676f7b7af32fb9c5a775f5b",
       "icon_key": "b3ea27d8f60af93378dedb6c2bbb7d243ae147add1e289cfa9da28ebd1d3e9e8"
-    },
-    {
-      "name": "ps5-webkit-autoloader",
-      "filename": "webkit-autoloader-installer_v0.7.1.elf",
-      "url": "https://github.com/itsPLK/ps5-webkit-autoloader/releases/download/v0.7.1/webkit-autoloader-installer_v0.7.1.elf",
-      "source": "https://github.com/itsPLK/ps5-webkit-autoloader/releases",
-      "source_direct": "https://github.com/itsPLK/ps5-webkit-autoloader/releases/download/v0.7.1/webkit-autoloader-installer_v0.7.1.elf",
-      "description": "v0.7.1",
-      "last_update": "2026-11-08",
-      "version": "v0.7.1",
-      "category": "Uncategorized",
-      "checksum": "df60538570e9811bb0b4652a3fdb3e1a35ec3455b3ca7c80edc4140c5bb47ce2",
-      "icon_key": "50551d47dc962b47d51fba9358c25c905f98bbb832c59c8dd68b681fadaa6b44"
     }
   ]
 }
