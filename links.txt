@@ -25,3 +25,4 @@ github:StonedModder/Ghostcontrol-PS5-USB-Controller-Patcher
 github:MounirHero/PS-Play
 github:quer3q/kraken-mount
 github:saawant12/orbit-store-ps5
+github:itsPLK/ps5-webkit-autoloader
